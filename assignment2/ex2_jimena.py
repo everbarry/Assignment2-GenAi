@@ -160,18 +160,35 @@ class BinaryCLT:
             lp[i] = val
         return lp
 
-    def sample(self, n):
-        order = [self.root] + list(itertools.chain(*[self.children[i] for i in order]))
-        S = np.zeros((n, self.n_vars))
-        for t in range(n):
+    def sample(self, n_samples:int):
+        # Topological order via BFS (ensures parents come before children)
+        order = [self.root]
+        queue = [self.root]
+        visited = {self.root}
+        while queue:
+            node = queue.pop(0)
+            for child in self.children[node]:
+                if child not in visited:
+                    order.append(child)
+                    visited.add(child)
+                    queue.append(child)
+
+        # Prepare array for samples
+        S = np.zeros((n_samples, self.n_vars))
+
+        # Generate n samples
+        for t in range(n_samples):
             for j in order:
                 if j == self.root:
-                    p = np.exp(self.log_params[j,0])
-                    S[t,j] = np.random.choice((0,1), p=p)
+                    # Sample root using marginal log-probs
+                    probs = np.exp(self.log_params[j, 0])
+                    S[t, j] = np.random.choice((0, 1), p=probs)
                 else:
-                    pv = int(S[t,self.parents[j]])
-                    p = np.exp(self.log_params[j,pv])
-                    S[t,j] = np.random.choice((0,1), p=p)
+                    # Sample child given its parent's value
+                    parent_val = int(S[t, self.parents[j]])
+                    probs = np.exp(self.log_params[j, parent_val])
+                    S[t, j] = np.random.choice((0, 1), p=probs)
+
         return S
 
     def visualize_tree(self):
